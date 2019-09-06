@@ -92,8 +92,10 @@ class NLPProcess():
 		self.docset_lemma = []
 		self.nes = set(span.text for span in self.document.ents)
 
-		if bool_lemma is True:
 
+		"""
+		if bool_lemma is True:
+			
 			for sent in self.document.sents:
 
 				self.docset_lemma.append(
@@ -107,7 +109,7 @@ class NLPProcess():
 				)
 
 			return self.docset_lemma
-
+		
 		else:
 
 			for sent in self.document.sents:
@@ -123,7 +125,22 @@ class NLPProcess():
 				)
 
 			return self.docset
+		"""
 
+		self.doc_op = self.docset_lemma if bool_lemma else self.docset
+
+		for sent in self.document.sents:
+
+			self.doc_op.append(
+				[token.lemma_ for token in sent
+				 if not ('\u0000' <= token.text <= '\u002F'
+						 or '\u003A' <= token.text <= '\u003E'
+						 or '\u005B' <= token.text <= '\u005F'
+						 )
+				 if not token in self.nes
+				 ]
+			)
+		return self.doc_op
 
 	def omit_stop(self, document):
 
@@ -271,7 +288,8 @@ diff_set = nlpt.set_difference(omitted_set, nes_set_single)
 
 v = Vigilant()
 # v.max_correlate()
-v.key_extractor()
+v.string_vectorize(doc_string)
+# v.key_extractor()
 
 
 """
