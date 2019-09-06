@@ -1,0 +1,286 @@
+import spacy
+from spacy.language import Language
+from spacy.pipeline import EntityRecognizer
+from spacy.vocab import Vocab
+
+import nltk
+from nltk.corpus import wordnet as wn
+from nltk.corpus import stopwords as sw
+from glove_load import GloveVectors as gv
+# from nltk.corpus import pun
+
+import numpy as np
+
+from vigilant_custom_log import custom_log
+
+# from pprint.PrettyPrint import pprint
+
+doc_string = "Duterte asked Faeldon to quit immediately following the backlash. " \
+			 "Faeldon was unable to respond quickly enough to quell the uproar about the release of Antonio Sanchez".replace('Faeldon', 'person').replace('Antonio Sanchez', 'person')
+
+class NLPProcess():
+
+	def __init__(self, doc_string='', doc_elements=''):
+		"""
+		initializes NLP process object, initializes spacy model and doc
+		:param doc_string: string to be subjected to textual analysis (optional)
+		:param doc_elements: element sit to be subjected to textual analysis
+		"""
+		self.doc_string = doc_string
+		self.doc_elements = doc_elements
+		self.nlp = Language(Vocab())
+		self.nlp = spacy.load("en_core_web_sm")
+		# self.nlp.vocab.vectors.from_glove("glove6B/glove.6B.50d.txt")
+		self.document = self.nlp(self.doc_string)
+
+	def spacy_ner_labelled(self):
+		"""
+		:return: returns a mapping type with named entity : entity category
+		"""
+
+		"""
+		print('DOCUMENT ENTS: {}'.format(self.document.ents))
+		text = [span.text for span in self.document.ents]
+		label = [span.label_ for span in self.document.ents]
+		ent_map = dict(set(zip(text, label)))
+		print(ent_map)
+		"""
+
+		sentences = []
+		print('DOCUMENT ENTS: {}'.format(self.document.ents))
+
+		for sent in self.document.sents:
+
+			temp = self.nlp(sent.text)
+			text = [span.text for span in temp.ents]
+			label = [span.label_ for span in temp.ents]
+			sentence_ents = dict(set(zip(text, label)))
+			sentences.append(sentence_ents)
+
+		return sentences
+
+	def spacy_ner(self):
+
+		sentences = []
+
+		for sent in self.document.sents:
+
+			temp = self.nlp(sent.text)
+			ents = [span.text for span in temp.ents]
+			sentences.append(ents)
+
+
+		return sentences
+
+	def spacy_sim(self):
+		pass
+
+	def noun_chunker(self):
+
+		for chunk in self.document.noun_chunks:
+			print(chunk.text, chunk.root.text, chunk.root.dep_)
+
+	def get_tokenset(self, bool_lemma=True):
+		"""
+		creates a token set for each sentence while removing punctuation marks and escape characters
+		:param bool_lemma: if true, returns a set of lemma tokens. if false, returns tokens
+		:param omit_ner: if true, omits named entities
+		:return: returns set of tokens
+		"""
+
+		self.docset = []
+		self.docset_lemma = []
+		self.nes = set(span.text for span in self.document.ents)
+
+		if bool_lemma is True:
+
+			for sent in self.document.sents:
+
+				self.docset_lemma.append(
+					[token.lemma_ for token in sent
+					 if not ('\u0000' <= token.text <= '\u002F'
+							 or '\u003A' <= token.text <= '\u003E'
+							 or '\u005B' <= token.text <= '\u005F'
+							)
+					 if not token in self.nes
+					]
+				)
+
+			return self.docset_lemma
+
+		else:
+
+			for sent in self.document.sents:
+
+				self.document_lemma.append(
+					[token for token in sent
+					 if not ('\u0000' <= token.text <= '\u002F'
+							 or '\u003A' <= token.text <= '\u003E'
+							 or '\u005B' <= token.text <= '\u005F'
+							)
+					 if not token in self.nes
+					]
+				)
+
+			return self.docset
+
+
+	def omit_stop(self, document):
+
+		stopwords = sw.words('english')
+		self.document_omitted = []
+
+		for sentences in document:
+			self.document_omitted.append(
+				[token for token in sentences if token not in stopwords]
+			)
+
+		return self.document_omitted
+
+	def omit_space(self, sent_set):
+
+		singles_sets = []
+		for sent in sent_set:
+			single_set = []
+			for _ in sent:
+				# print(_)
+				if ' ' in _:
+					print(_)
+					single_set.extend(_.split(' '))
+				else:
+					single_set.append(_)
+
+			singles_sets.append(single_set)
+
+		return singles_sets
+
+	def set_difference(self, parent_set, child_set):
+
+		diff_set = []
+
+		for psets, csets in zip(parent_set, child_set):
+			diff = set(psets).difference(set(csets))
+			diff_set.append(diff)
+
+		return diff_set
+
+
+
+class NLPRelation():
+
+	def __init__(self, token_set):
+		self.token_set = token_set
+		self.token_debug = 'rape'
+
+	def semantic_cosine_similarity(self):
+		pass
+
+	def get_synset(self):
+		syn = wn.synsets(self.token_debug, pos = wn.VERB)
+		custom_log(syn)
+		# instantiate a list of related words where the '_' char is replaced with a space
+		syn_list = [l.name().replace('_', ' ') for s in syn for l in s.lemmas()]
+		custom_log(syn_list)
+		syn_set = set(syn_list)
+		custom_log(syn_set)
+
+class Vigilant:
+	"""
+	Vigilant class contains semantic analysis and comparison methods that attempt to find the closest semantically
+	related sentences. Named entities, whether raw string or categorical names, are considered when parsing documents.
+	"""
+	@staticmethod
+
+	def key_extractor():
+		nlpt = NLPProcess(doc_string=doc_string)
+		nlpt.noun_chunker()
+
+	def max_correlate():
+		"""
+		:param self: implicitly passed instance of the binding class
+		:param token_set: a nested collection containing the tokens per each parsed line of the document
+		:return:
+		"""
+
+		# debugtest: vectorloading
+
+		"""
+		custom_log(token_sets)
+		nlp = Language()
+		nlp.from_disk(r'glove6B/glove-6B')
+		for sets in token_sets:
+			for token in sets:
+					custom_log(nlp(token).vector)
+		"""
+		
+	def string_vectorize(self, doc_string):
+
+		nlp = Language()
+		nlp.from_disk(r'glove6B/glove-6B')
+
+		nlpt = NLPProcess(doc_string=doc_string)
+		nes_set = nlpt.spacy_ner()
+		token_set = nlpt.get_tokenset(True)
+		omitted_set = nlpt.omit_stop(token_set)
+		custom_log(omitted_set)
+		nes_single_set = nlpt.omit_space(nes_set)
+		custom_log(nes_single_set)
+		diff_set = nlpt.set_difference(omitted_set, nes_single_set)
+		custom_log(diff_set)
+
+		document_vectorized = []
+		for set in diff_set:
+			searchable_words = len(set)
+			sentence_vectorized = np.zeros((1, 50))
+			for token in set:
+				if not nlp(token).vector.any():
+					searchable_words - 1
+				else:
+					sentence_vectorized += nlp(token).vector
+			np.divide(sentence_vectorized, searchable_words)
+
+			document_vectorized.append(sentence_vectorized)
+
+		custom_log(document_vectorized)
+
+
+
+
+
+
+		 
+
+
+"""
+nlpt = NLPProcess(doc_string=doc_string)
+nes_set = nlpt.spacy_ner()
+token_set = nlpt.get_tokenset(True)
+omitted_set = nlpt.omit_stop(token_set)
+
+
+print(token_set)
+print(omitted_set)
+print('NES_SET {} '.format(nes_set))
+
+nes_set_single = nlpt.omit_stop(nes_set)
+
+print(nes_set_single)
+
+diff_set = nlpt.set_difference(omitted_set, nes_set_single)
+"""
+
+v = Vigilant()
+# v.max_correlate()
+v.key_extractor()
+
+
+"""
+nlpr = NLPRelation('')
+nlpr.get_synset()
+"""
+
+
+
+
+
+

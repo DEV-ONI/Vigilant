@@ -1,17 +1,13 @@
 
 import requests
 import inspect
-# import logging
 import json
 import urllib
 from pprint import pprint
 
-from vigilant_custom_log import log
+from vigilant_custom_log import custom_log
 from request_decoder import NewsAggregate as news_agg
-import graphfb
-# import
-
-# logging.getLogger("parent")
+from requests import exceptions as ex
 
 
 class ArticlesFetched:
@@ -33,11 +29,12 @@ class ArticlesFetched:
 				operator_2 = ' AND '
 
 			self.news_keywords += operator + context
-
 			self.newsriver_keywords += operator_2 + 'text:' + context
 
-	def news_api_request(self, searchBy = 'everything', sortBy='relevancy',
-		pageSize = '', page = '', **extra_queries):
+	def news_api_request(
+		self, searchBy = 'everything', sortBy='relevancy',
+		pageSize = '', page = '', **extra_queries
+	):
 
 		request_url = 'https://newsapi.org/v2/'
 		request_url += searchBy
@@ -50,21 +47,21 @@ class ArticlesFetched:
 
 		# add keywords or phrases to the request
 		payload['q'] = self.news_keywords
-		# payload = arg_spec.annotations
-
 		headers = {}
 		headers['X-Api-Key'] = self.news_token
 
-		log(self, payload)
+		# log(self, payload)
 
 		response = requests.get(url=request_url, headers=headers, params=payload)
 
-		log(self, response.json())
+		# log(self, response.json())
 		loaded = json.loads(response.text)
 		pprint(loaded)
 
-	def news_river_api_request(self, bool_operator = 'AND',
-			sortBy='_score', sortOrder='DESC', limit=100):
+	def news_river_api_request(
+			self, bool_operator = 'AND', language = 'EN',
+			sortBy='_score', sortOrder='DESC', limit=50
+	):
 
 		valid_operators = ['AND', 'OR', 'NOT']
 		valid_country_codes = []
@@ -90,7 +87,7 @@ class ArticlesFetched:
 		"""
 
 		payload = {}
-		payload['query'] = self.newsriver_keywords
+		payload['query'] = self.newsriver_keywords + ' AND ' + 'language:{}'.format(language)
 
 		arg_spec = inspect.getfullargspec(self.news_river_api_request)
 		for kwargs, vals in zip(arg_spec.args[2:], arg_spec.defaults[1:]):
@@ -101,24 +98,28 @@ class ArticlesFetched:
 		headers = {}
 		headers["Authorization"] = self.newsriver_token
 
-		response = requests.get(request_url, headers=headers, params=params)
+		try:
+			response = requests.get(request_url, headers=headers, params=params, timeout = (15, 30))
+			response.raise_for_status()
+		except ex.HTTPError:
+			pass
+			# handle exception
+		except ex.Timeout:
+			pass
+			# handle exception
+
 		loaded = json.loads(response.text)
-		log(self, response.url)
-		log(self, response.headers)
-		# pprint(response.text)
-		# jsonFile = response.json()
-
 		na = news_agg(response)
-
-		log(self, na.json_decodecompile())
-
+		compiled = na.json_decodecompile()
+		custom_log(compiled)
 
 
 # if __name__ is "__main__":
 
-A = ArticlesFetched('China', 'Philippines')
-# A.news_api_request()
+A = ArticlesFetched('China', 'Duterte')
+# A.news_api_request(pageSize='100', page='1')
 A.news_river_api_request(bool_operator= 'AND')
+
 
 
 
