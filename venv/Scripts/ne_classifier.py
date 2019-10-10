@@ -1,3 +1,5 @@
+import operator as op
+
 import spacy
 from spacy.language import Language
 from spacy.pipeline import EntityRecognizer
@@ -12,18 +14,21 @@ from glove_load import GloveVectors as gv
 import numpy as np
 
 from vigilant_custom_log import custom_log
+from news_request_constructor import ArticlesFetched
 
 # from pprint.PrettyPrint import pprint
 
 doc_string = """
-Duterte said he fired Faeldon because he insisted at the Senate committee hearing that rape-slay convict and ex-Calauan Lagunar Mayor Antonio Sanchez was eligible for early release under the good conduct time allowance (GCTA) law.
+Twenty-six years since Allan Gomez was murdered by former Calauan, Laguna Mayor Antonio Sanchez, the student's family still keeps his memorabilia.
+Gomez was kidnapped by Sanchez's 6 aides on June 28, 1993, along with fellow University of the Philippines Los Baños student, 19-year-old Eileen Sarmenta, who was raped by the former mayor before being shot in the face, according to court records.
+Sarmenta was presented to Sanchez as a "gift," while his aides beat up Gomez who was later shot dead as well.
 """
 
 class NLPProcess():
 
 	def __init__(self, doc_string='', doc_elements=''):
 		"""
-		initializes NLP process object, initializes spacy model and doc
+		initializes NLP process object, initializes spacy model and doc object
 		:param doc_string: string to be subjected to textual analysis (optional)
 		:param doc_elements: element sit to be subjected to textual analysis
 		"""
@@ -36,6 +41,7 @@ class NLPProcess():
 
 	def spacy_ner_labelled(self):
 		"""
+		returns nested collection with mapping of entity : entity category
 		:return: returns a mapping type with named entity : entity category
 		"""
 
@@ -60,23 +66,27 @@ class NLPProcess():
 
 		return sentences
 
-	def spacy_ner(self):
+	def spacy_ner(self, nested=True):
 
 		sentences = []
 
 		for sent in self.document.sents:
 
 			temp = self.nlp(sent.text)
-			ents = [span.text for span in temp.ents]
-			sentences.append(ents)
+			# ents = ['"' + span.text + '"' if ' ' in span.text else span.text for span in temp.ents]
+			ents = [span.text for span in temp.ents if span.label_ is 'PERSON']
+			custom_log(ents)
+			sentences.append(ents) if nested is True else sentences.extend(ents)
 
+		custom_log(sentences)
 
 		return sentences
 
-	def spacy_sim(self):
-		pass
-
 	def candidate_chunker(self):
+		"""
+		retrieves all 'NOUN' or 'ADJ' tokens from noun chunks processed by spacy
+		:return: list of noun chunks
+		"""
 		noun_chunks = []
 
 		for chunk in self.document.noun_chunks:
@@ -103,42 +113,6 @@ class NLPProcess():
 		self.docset = []
 		self.docset_lemma = []
 		self.nes = set(span.text for span in self.document.ents)
-
-
-		"""
-		if bool_lemma is True:
-			
-			for sent in self.document.sents:
-
-				self.docset_lemma.append(
-					[token.lemma_ for token in sent
-					 if not ('\u0000' <= token.text <= '\u002F'
-							 or '\u003A' <= token.text <= '\u003E'
-							 or '\u005B' <= token.text <= '\u005F'
-							)
-					 if not token in self.nes
-					]
-				)
-
-			return self.docset_lemma
-		
-		else:
-
-			for sent in self.document.sents:
-
-				self.document_lemma.append(
-					[token for token in sent
-					 if not ('\u0000' <= token.text <= '\u002F'
-							 or '\u003A' <= token.text <= '\u003E'
-							 or '\u005B' <= token.text <= '\u005F'
-							)
-					 if not token in self.nes
-					]
-				)
-
-			return self.docset
-		"""
-
 		self.doc_op = self.docset_lemma if bool_lemma else self.docset
 
 		for sent in self.document.sents:
@@ -150,11 +124,17 @@ class NLPProcess():
 				)
 				if not token in self.nes
 			]
+
 			self.doc_op.append(sent_token) if nest is True else self.doc_op.extend(sent_token)
 
 		return self.doc_op
 
 	def omit_stop(self, document):
+		"""
+		loads nltk stopwords from the nltk language corpus returns set
+		:param nestec collection of sentences
+		:return: nested collection of sentences
+		"""
 
 		stopwords = sw.words('english')
 		self.document_omitted = []
@@ -167,6 +147,10 @@ class NLPProcess():
 		return self.document_omitted
 
 	def omit_space(self, sent_set):
+		"""
+		:param sent_set: set of sentences containing
+		:return: omit spaces between tokens and
+		"""
 
 		singles_sets = []
 		for sent in sent_set:
@@ -184,6 +168,12 @@ class NLPProcess():
 		return singles_sets
 
 	def set_difference(self, parent_set, child_set):
+		"""
+		set difference
+		:param parent_set: set to compare against, members of parent set that satisfy condition will be returned
+		:param child_set: set to compare with
+		:return: difference of child set against parent set
+		"""
 
 		diff_set = []
 
@@ -192,8 +182,6 @@ class NLPProcess():
 			diff_set.append(diff)
 
 		return diff_set
-
-
 
 class NLPRelation():
 
@@ -207,6 +195,7 @@ class NLPRelation():
 	def get_synset(self):
 		syn = wn.synsets(self.token_debug, pos = wn.VERB)
 		custom_log(syn)
+
 		# instantiate a list of related words where the '_' char is replaced with a space
 		syn_list = [l.name().replace('_', ' ') for s in syn for l in s.lemmas()]
 		custom_log(syn_list)
@@ -214,47 +203,62 @@ class NLPRelation():
 		custom_log(syn_set)
 
 class Vigilant:
+
 	"""
 	Vigilant class contains semantic analysis and comparison methods that attempt to find the closest semantically
 	related sentences. Named entities, whether raw string or categorical names, are considered when parsing documents.
 	"""
-	def __init__(self):
+
+	def __init__(self, doc_string):
 		self.nlp = Language()
 		self.nlp.from_disk(r'glove6B/glove-6B')
 		self.nlpt = NLPProcess(doc_string=doc_string)
 
-	def key_extractor(self):
+	def key_extractor(self, window_size = 5, alpha=0.3, beta=1.5, top_keys=2):
+
 		candidate_chunks = self.nlpt.candidate_chunker()
 		candidate_score = {}
+		candidate_nlp_score = {}
 		token_set = self.nlpt.get_tokenset(bool_lemma=False, nest=False)
-		# custom_log(token_set)
-		# custom_log(candidate_chunks)
-
 		to_zero = lambda i: (abs(i)+i) if i < 0 else i
 		to_ceiling = lambda i: len(token_set) if i > len(token_set) else i
 
 		for candidate in candidate_chunks:
 			score = 0
+			sim_score = 0
 			no_instances = 0
-			# custom_log(candidate)
+			custom_log(candidate)
+			candidate_nlp = self.nlp(candidate)
 			for index in find_all(candidate, token_set):
 				no_instances += 1
-				for neighbor in range(to_zero(index-5), to_ceiling(index+5)):
+				# custom_log(index)
+				for neighbor in range(to_zero(index-window_size), to_ceiling(index+window_size)):
 					if token_set[neighbor] in candidate_chunks and neighbor is not index:
+						sim = candidate_nlp.similarity(self.nlp(token_set[neighbor]))
+						sim_score += -(sim-0.5) if sim > 0.5 else sim
 						score += 1
-						custom_log(token_set[neighbor])
 
-			custom_log(no_instances)
-
-			candidate_score[candidate] = score
+			candidate_score[candidate] = (alpha*no_instances + beta*score)
+			candidate_nlp_score[candidate] = round((alpha*no_instances + beta*sim_score),4)
 
 		custom_log(candidate_score)
+		custom_log(candidate_nlp_score)
 
-			# candidate_score[str(candidate)] += 1
+		top_keywords = [key for key, value in sorted(candidate_nlp_score.items(), key=op.itemgetter(1), reverse=True)][0:top_keys]
 
+		return top_keywords
 
+	def fetch_articles_by_context(self):
+		context = self.nlpt.spacy_ner(nested=False)
+		# nes_single_set = self.nlpt.omit_space(nes_set)
+		keys = self.key_extractor()
+		context.extend(keys)
 
-		# for chunk in noun_chunks
+		custom_log(context)
+		custom_log(keys)
+
+		A = ArticlesFetched(*context)
+		A.news_river_api_request(bool_operator='AND')
 
 	def max_correlate(self):
 		"""
@@ -276,7 +280,13 @@ class Vigilant:
 		
 	def string_vectorize(self, doc_string):
 
-		nes_set = self.nlpt.spacy_ner()
+		"""
+		returns a nested collection of all tokens using their gloVe representation
+		:param doc_string: doc_string to vectorize
+		:return: vectorized nested collection corresponding to document
+		"""
+
+		nes_set = self.nlpt.spacy_ner(nested=True)
 		token_set = self.nlpt.get_tokenset(bool_lemma=True, nest=False)
 		omitted_set = self.nlpt.omit_stop(token_set)
 		custom_log(omitted_set)
@@ -300,32 +310,18 @@ class Vigilant:
 
 		custom_log(document_vectorized)
 
-"""
-
-def find_all(element, list, index=0):
-	index_list = []
-	index = index
-	try:
-		index = list.index(element, index)
-		# custom_log(index)
-		index_list.append(index)
-		if index != len(list)-1:
-			find_all(element, list, index+1)
-		else:
-			return index_list
-	except ValueError:
-		return index_list
-"""
 
 def find_all(element, list):
-	offset = 0
 	index = 0
+	last_index = -1
 
 	while index != len(list):
 
 		try:
-			index = list.index(element, list.index(element) + offset)
-			offset += 1
+			index = list.index(element, last_index+1)
+			if last_index == index:
+				return
+			last_index = index
 			yield index
 
 		except ValueError:
@@ -350,10 +346,11 @@ print(nes_set_single)
 diff_set = nlpt.set_difference(omitted_set, nes_set_single)
 """
 
-v = Vigilant()
+v = Vigilant(doc_string)
+v.fetch_articles_by_context()
 # v.max_correlate()
 # v.string_vectorize(doc_string)
-v.key_extractor()
+# v.key_extractor()
 
 
 """

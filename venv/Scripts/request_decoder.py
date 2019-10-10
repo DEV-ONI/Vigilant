@@ -28,7 +28,6 @@ class NewsAggregate:
 				title_occurence.append(element['title'][0])
 
 				# debug
-
 				custom_log('COMPILED VALUES: {}'.format(compiled_values))
 				custom_log('COMPILED NEWS: {}'.format(compiled_news))
 
@@ -37,7 +36,7 @@ class NewsAggregate:
 
 					custom_log("key: {}, value: {}".format(key, element[key] if key in element.keys() else ''))
 
-				custom_log("END /n")
+				custom_log("END \n")
 
 		return compiled_news
 

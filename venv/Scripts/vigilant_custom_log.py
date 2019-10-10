@@ -9,8 +9,6 @@ def custom_log(msg):
 	try:
 		backframe_info = inspect.getframeinfo(frame)
 		function_name = backframe_info.function
-		# bounding_class = function_name.__self__
-		# print(bounding_class)
 	finally:
 		del backframe_info
 

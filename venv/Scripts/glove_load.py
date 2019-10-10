@@ -1,6 +1,7 @@
 # coding: utf8
 
 import numpy as np
+
 import spacy
 from spacy.language import Language
 from spacy.pipeline import EntityRecognizer
@@ -13,14 +14,15 @@ class GloveVectors:
 	def __init__(self, dimensions):
 
 		"""
-		:param dimensions: dimenions of the word vector, specified which glove text file to open
+		initializes the glove vector
+		:param dimensions: dimenions of the word vector, specifies which glove text file to open
 		"""
 
 		valid_dim = [50, 100, 200, 300]
 		if dimensions in valid_dim:
 			pass
 		else:
-			# raise some exception
+			# raise some exception if dimensions param is not in valid_dim
 			# return none type
 			pass
 
@@ -28,7 +30,8 @@ class GloveVectors:
 
 	def load_model(self):
 		"""
-		loading text from directory into dictionary
+		loading glove vectors from directory into dictionary. use this method for manipulation outside
+		nlp modules lacking vector loading methods
 		:return: returns word vectors as a mapped type
 		"""
 		custom_log('LOADING GLOVE MODEL')
@@ -45,13 +48,17 @@ class GloveVectors:
 
 	def load_tospacy(self, lang='en'):
 
+		"""
+		loads glove vectors from file specified in intialization, set vectors and save to disk
+		:param lang:
+		:return:
+		"""
+
 		if lang is None:
-			nlp = Language()
+			# create blank multilanguage class with 'xx' if lang is None
+			nlp = Language('xx')
 
 		else:
-			# create empty language class – this is required if you're planning to
-			# save the model to disk and load it back later (models always need a
-			# "lang" setting). Use 'xx' for blank multi-language class.
 			nlp = spacy.blank(lang)
 
 		custom_log('PARSING GLOVE MODEL')
@@ -75,13 +82,7 @@ def debug_test():
 	:return:
 	"""
 
-	# nlp = Language(Vocab())
-	# nlp = spacy.load("en_core_web_sm")
-
 	gv = GloveVectors(50)
-	# gv.load_tospacy()
-	# loaded_model = gv.load_model()
-	# custom_log(loaded_model['president'])
 
 	nlp = Language()
 	nlp.from_disk(r'glove6B/glove-6B')
@@ -101,5 +102,5 @@ def numpy_test():
 
 	custom_log(np.zeros((1, 30)))
 
-debug_test()
+# debug_test()
 # numpy_test()

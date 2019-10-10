@@ -18,6 +18,7 @@ class ArticlesFetched:
 		self.newsriver_token = 'sBBqsGXiYgF0Db5OV5tAw0VKhAq8zkkjCrqKwmR3QN_TyztikgQKHW6toOuSNN6Tn2pHZrSf1gT2PUujH1YaQA'
 		self.news_keywords = ''
 		self.newsriver_keywords = ''
+		custom_log(contexts)
 
 		for context in contexts:
 
@@ -26,10 +27,11 @@ class ArticlesFetched:
 				operator_2 = ''
 			else:
 				operator = '+'
-				operator_2 = ' AND '
+				operator_2 = ' OR '
 
 			self.news_keywords += operator + context
-			self.newsriver_keywords += operator_2 + 'text:' + context
+			rcontext = str('%22' + context + '%22') if ' ' in context else context
+			self.newsriver_keywords += operator_2 + 'text:' + rcontext
 
 	def news_api_request(
 		self, searchBy = 'everything', sortBy='relevancy',
@@ -59,23 +61,25 @@ class ArticlesFetched:
 		pprint(loaded)
 
 	def news_river_api_request(
-			self, bool_operator = 'AND', language = 'EN',
-			sortBy='_score', sortOrder='DESC', limit=50
+			self, bool_operator = 'OR', language = 'EN',
+			sortBy='_score', sortOrder='DESC', limit=100
 	):
 
 		valid_operators = ['AND', 'OR', 'NOT']
 		valid_country_codes = []
 		request_url = 'https://api.newsriver.io/v2/search'
+		response = None
 
+		"""
 		if bool_operator not in valid_operators:
 			pass
 			# raise some exception
 		else:
 			if bool_operator is not 'AND':
 				self.newsriver_keywords.replace('AND',
-					bool_operator.center(len(bool_operator)+2*len('%20'), '%20'))
-
-		"""
+					bool_operator.center(len(bool_operator)+2*len(' '), ' '))
+ 
+		
 		
 		if countryCode not in valid_country_codes:
 			pass
@@ -98,16 +102,24 @@ class ArticlesFetched:
 		headers = {}
 		headers["Authorization"] = self.newsriver_token
 
+		response = requests.get(request_url, headers=headers, params=params)
+		# response.raise_for_status()
+		custom_log(response.request.body)
+
+		"""
 		try:
 			response = requests.get(request_url, headers=headers, params=params, timeout = (15, 30))
 			response.raise_for_status()
+			custom_log(response)
+		
 		except ex.HTTPError:
 			pass
 			# handle exception
 		except ex.Timeout:
 			pass
 			# handle exception
-
+		"""
+		custom_log(response.text)
 		loaded = json.loads(response.text)
 		na = news_agg(response)
 		compiled = na.json_decodecompile()
@@ -116,9 +128,9 @@ class ArticlesFetched:
 
 # if __name__ is "__main__":
 
-A = ArticlesFetched('China', 'Duterte')
+# A = ArticlesFetched('China', 'Duterte')
 # A.news_api_request(pageSize='100', page='1')
-A.news_river_api_request(bool_operator= 'AND')
+# A.news_river_api_request(bool_operator= 'AND')
 
 
 
