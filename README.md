@@ -1,4 +1,3 @@
-*Would be happy to discuss this implementation in through email or in person*
 
 Python, gloVe, Natural Language Processing
 numpy, spacy, ntlk, wordnet, json, requests, urllib, inspect, logging
@@ -16,9 +15,9 @@ number of instances of said candidate in the token set and their semantic simila
 Using these keyphrases, I can retrieve relevant articles by constructing an HTTP request with the keywords as payload to newsriver API
 and parse these articles for semantically similar sentences.
 
-[gloVe] (https://nlp.stanford.edu/projects/glove/)
+[gloVe](https://nlp.stanford.edu/projects/glove/)
 
-[Unsupervised Key-phrase Extraction Algorithm which I implemented and modified] (https://pdfs.semanticscholar.org/cd96/3a530f1178833dc14f1d23545aaaacbf693e.pdf?fbclid=IwAR15EY2zMjX4YJq52H5KVS3T3U7fQUPAr-S1JbMNAgs1dJUZwmHgEroz-cY)
+[Unsupervised Key-phrase Extraction Algorithm which I implemented and modified](https://pdfs.semanticscholar.org/cd96/3a530f1178833dc14f1d23545aaaacbf693e.pdf?fbclid=IwAR15EY2zMjX4YJq52H5KVS3T3U7fQUPAr-S1JbMNAgs1dJUZwmHgEroz-cY)
 
 ### Example:
 
@@ -41,3 +40,4 @@ The highest scoring keys are: records, family, and student.
 2. court records
 3. the student's family
 
+*Would be happy to discuss this implementation in through email or in person*
