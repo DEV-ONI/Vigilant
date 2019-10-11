@@ -24,13 +24,125 @@ Gomez was kidnapped by Sanchez's 6 aides on June 28, 1993, along with fellow Uni
 Sarmenta was presented to Sanchez as a "gift," while his aides beat up Gomez who was later shot dead as well.
 """
 
+
+class Vigilant:
+	"""
+	Vigilant class contains semantic analysis and comparison methods that attempt to find the closest semantically
+	related sentences. Named entities, whether raw string or categorical names, are considered when parsing documents.
+	"""
+
+	def __init__(self, doc_string):
+		self.nlp = Language()
+		self.nlp.from_disk(r'glove6B/glove-6B')
+		self.nlpt = NLPProcess(doc_string=doc_string)
+
+	def key_extractor(self, window_size=5, alpha=0.3, beta=1.5, top_keys=2):
+
+		candidate_chunks = self.nlpt.candidate_chunker()
+		candidate_score = {}
+		candidate_nlp_score = {}
+		token_set = self.nlpt.get_tokenset(bool_lemma=False, nest=False)
+
+		# lambda functions to return zero or eol index if evaluated expression goes out of list range
+		to_zero = lambda i: (abs(i) + i) if i < 0 else i
+		to_ceiling = lambda i: len(token_set) if i > len(token_set) else i
+		for candidate in candidate_chunks:
+			score = 0
+			sim_score = 0
+			no_instances = 0
+			custom_log(candidate)
+			candidate_nlp = self.nlp(candidate)
+			for index in find_all(candidate, token_set):
+				no_instances += 1
+				# custom_log(index)
+				for neighbor in range(to_zero(index - window_size), to_ceiling(index + window_size)):
+					if token_set[neighbor] in candidate_chunks and neighbor is not index:
+						sim = candidate_nlp.similarity(self.nlp(token_set[neighbor]))
+						sim_score += -(sim - 0.5) if sim > 0.5 else sim
+						score += 1
+
+			candidate_score[candidate] = (alpha * no_instances + beta * score)
+			candidate_nlp_score[candidate] = round((alpha * no_instances + beta * sim_score), 4)
+
+		custom_log(candidate_score)
+		custom_log(candidate_nlp_score)
+
+		top_keywords = [key for key, value in sorted(candidate_nlp_score.items(), key=op.itemgetter(1), reverse=True)][
+					   0:top_keys]
+
+		return top_keywords
+
+	def fetch_articles_by_context(self):
+		context = self.nlpt.spacy_ner(nested=False)
+		# nes_single_set = self.nlpt.omit_space(nes_set)
+		keys = self.key_extractor()
+		context.extend(keys)
+
+		custom_log(context)
+		custom_log(keys)
+
+		A = ArticlesFetched(*context)
+		A.news_river_api_request(bool_operator='AND')
+
+	def max_correlate(self):
+		"""
+		:param self: implicitly passed instance of the binding class
+		:param token_set: a nested collection containing the tokens per each parsed line of the document
+		:return:
+		"""
+
+		# debugtest: vectorloading
+
+		"""
+		custom_log(token_sets)
+		nlp = Language()
+		nlp.from_disk(r'glove6B/glove-6B')
+		for sets in token_sets:
+			for token in sets:
+					custom_log(nlp(token).vector)
+		"""
+
+	def string_vectorize(self, doc_string):
+
+		"""
+		returns a nested collection of all gloVe representations of their tokens
+		:param doc_string: doc_string to vectorize
+		:return: vectorized average of all tokens
+		"""
+
+		nes_set = self.nlpt.spacy_ner(nested=True)
+		token_set = self.nlpt.get_tokenset(bool_lemma=True, nest=False)
+		omitted_set = self.nlpt.omit_stop(token_set)
+		custom_log(omitted_set)
+		nes_single_set = self.nlpt.omit_space(nes_set)
+		custom_log(nes_single_set)
+		diff_set = self.nlpt.set_difference(omitted_set, nes_single_set)
+		custom_log(diff_set)
+
+		document_vectorized = []
+
+		for set in diff_set:
+			searchable_words = len(set)
+			sentence_vectorized = np.zeros((1, 50))
+			for token in set:
+				if not self.nlp(token).vector.any():
+					searchable_words - 1
+				else:
+					sentence_vectorized += self.nlp(token).vector
+			np.divide(sentence_vectorized, searchable_words)
+
+			document_vectorized.append(sentence_vectorized)
+
+		custom_log(document_vectorized)
+
+
 class NLPProcess():
 
 	def __init__(self, doc_string='', doc_elements=''):
 		"""
 		initializes NLP process object, initializes spacy model and doc object
 		:param doc_string: string to be subjected to textual analysis (optional)
-		:param doc_elements: element sit to be subjected to textual analysis
+		:param doc_elements: element set to be subjected to textual analysis
 		"""
 		self.doc_string = doc_string
 		self.doc_elements = doc_elements
@@ -132,7 +244,7 @@ class NLPProcess():
 	def omit_stop(self, document):
 		"""
 		loads nltk stopwords from the nltk language corpus returns set
-		:param nestec collection of sentences
+		:param nested collection of sentences
 		:return: nested collection of sentences
 		"""
 
@@ -202,116 +314,17 @@ class NLPRelation():
 		syn_set = set(syn_list)
 		custom_log(syn_set)
 
-class Vigilant:
-
-	"""
-	Vigilant class contains semantic analysis and comparison methods that attempt to find the closest semantically
-	related sentences. Named entities, whether raw string or categorical names, are considered when parsing documents.
-	"""
-
-	def __init__(self, doc_string):
-		self.nlp = Language()
-		self.nlp.from_disk(r'glove6B/glove-6B')
-		self.nlpt = NLPProcess(doc_string=doc_string)
-
-	def key_extractor(self, window_size = 5, alpha=0.3, beta=1.5, top_keys=2):
-
-		candidate_chunks = self.nlpt.candidate_chunker()
-		candidate_score = {}
-		candidate_nlp_score = {}
-		token_set = self.nlpt.get_tokenset(bool_lemma=False, nest=False)
-		to_zero = lambda i: (abs(i)+i) if i < 0 else i
-		to_ceiling = lambda i: len(token_set) if i > len(token_set) else i
-
-		for candidate in candidate_chunks:
-			score = 0
-			sim_score = 0
-			no_instances = 0
-			custom_log(candidate)
-			candidate_nlp = self.nlp(candidate)
-			for index in find_all(candidate, token_set):
-				no_instances += 1
-				# custom_log(index)
-				for neighbor in range(to_zero(index-window_size), to_ceiling(index+window_size)):
-					if token_set[neighbor] in candidate_chunks and neighbor is not index:
-						sim = candidate_nlp.similarity(self.nlp(token_set[neighbor]))
-						sim_score += -(sim-0.5) if sim > 0.5 else sim
-						score += 1
-
-			candidate_score[candidate] = (alpha*no_instances + beta*score)
-			candidate_nlp_score[candidate] = round((alpha*no_instances + beta*sim_score),4)
-
-		custom_log(candidate_score)
-		custom_log(candidate_nlp_score)
-
-		top_keywords = [key for key, value in sorted(candidate_nlp_score.items(), key=op.itemgetter(1), reverse=True)][0:top_keys]
-
-		return top_keywords
-
-	def fetch_articles_by_context(self):
-		context = self.nlpt.spacy_ner(nested=False)
-		# nes_single_set = self.nlpt.omit_space(nes_set)
-		keys = self.key_extractor()
-		context.extend(keys)
-
-		custom_log(context)
-		custom_log(keys)
-
-		A = ArticlesFetched(*context)
-		A.news_river_api_request(bool_operator='AND')
-
-	def max_correlate(self):
-		"""
-		:param self: implicitly passed instance of the binding class
-		:param token_set: a nested collection containing the tokens per each parsed line of the document
-		:return:
-		"""
-
-		# debugtest: vectorloading
-
-		"""
-		custom_log(token_sets)
-		nlp = Language()
-		nlp.from_disk(r'glove6B/glove-6B')
-		for sets in token_sets:
-			for token in sets:
-					custom_log(nlp(token).vector)
-		"""
-		
-	def string_vectorize(self, doc_string):
-
-		"""
-		returns a nested collection of all tokens using their gloVe representation
-		:param doc_string: doc_string to vectorize
-		:return: vectorized nested collection corresponding to document
-		"""
-
-		nes_set = self.nlpt.spacy_ner(nested=True)
-		token_set = self.nlpt.get_tokenset(bool_lemma=True, nest=False)
-		omitted_set = self.nlpt.omit_stop(token_set)
-		custom_log(omitted_set)
-		nes_single_set = self.nlpt.omit_space(nes_set)
-		custom_log(nes_single_set)
-		diff_set = self.nlpt.set_difference(omitted_set, nes_single_set)
-		custom_log(diff_set)
-
-		document_vectorized = []
-		for set in diff_set:
-			searchable_words = len(set)
-			sentence_vectorized = np.zeros((1, 50))
-			for token in set:
-				if not self.nlp(token).vector.any():
-					searchable_words - 1
-				else:
-					sentence_vectorized += self.nlp(token).vector
-			np.divide(sentence_vectorized, searchable_words)
-
-			document_vectorized.append(sentence_vectorized)
-
-		custom_log(document_vectorized)
 
 
 def find_all(element, list):
+
+	"""
+	generator function that returns indexes of all instances of an element within the list
+	:param element: element to search for
+	:param list: list to search for the element
+	:return: returns if last index of the element has been reached or value error has been raised, otherwise yields index
+	"""
+
 	index = 0
 	last_index = -1
 
